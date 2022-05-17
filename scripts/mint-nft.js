@@ -1,29 +1,56 @@
 require("dotenv").config();
 const { ethers } = require("ethers");
-const web3Provider = process.env.INFURA;
-const Metamask_Public_Key = process.env.Metamask_Public_Key;
-const Metamask_Private_Key = process.env.Metamask_Private_Key;
-const NFT_Contract_Address = process.env.MyNFT_Address;
+const INFURA_KEY = process.env.INFURA_KEY;
+const METAMASK_PUBLIC_KEY = process.env.METAMASK_PUBLIC_KEY;
+const METAMASK_PRIVATE_KEY = process.env.METAMASK_PRIVATE_KEY;
+const NFT_Address = process.env.NFT_ADDRESS;
 const contractABI = require("../artifacts/contracts/NFT.sol/MyNFT.json");
 
-const provider = new ethers.providers.Web3Provider(web3Provider);
-const nftContract = new ethers.Contract(contractABI, NFT_Contract_Address);
-const signer = provider.getSigner()
+const provider = new ethers.providers.InfuraProvider("ropsten", INFURA_KEY);
+const signer = new ethers.Wallet(METAMASK_PRIVATE_KEY, provider);
 
+const nftContract = new ethers.Contract(NFT_Address, contractABI.abi, signer);
 
 async function nftMint(tokenURI) {
-  const nonce = await provider.getTransactionCount(Metamask_Public_Key, 'latest');
+  const nonce = await provider.getTransactionCount(METAMASK_PUBLIC_KEY, 'latest');
 
   const tx = {
-    'from': Metamask_Public_Key,
-    'to': MyNFT_Address,
+    'from': METAMASK_PUBLIC_KEY,
+    'to': NFT_Address,
     'nonce': nonce,
     'gas': 500000,
-    'data': nftContract.methods.mintNFT(PUBLIC_KEY, tokenURI).encodeABI()
+    'data': nftContract.functions.mintNFT(METAMASK_PUBLIC_KEY, tokenURI)
   }
 
-  const signPromiseTransaction = await signer.signTransaction(tx, Metamask_Private_Key)
+  const signedTransaction = signer.signTransaction(tx, METAMASK_PRIVATE_KEY)
 
-  // const signPromiseTransacton
-  // .then((signedTx) => {})
-}
+  // const sentTx = await signer.sendTransaction(signedTransaction);
+  // console.log(sentTx);
+  signedTransaction
+    .then((signedTx) => {
+      provider.sendTransaction(
+        signedTx,
+        function (err, hash) {
+          if(!err){
+            console.log(
+              "The hash of you transaction is: ",
+              hash,
+              "\nCheck Infura's Mempool to view the status of your transaction!"
+              )
+            } else {
+              console.log(
+                "Something went wrong when executing the transaction:",
+                err
+              )
+            }
+          }
+      )
+    })
+    .catch((err) =>{
+      console.log("Promise failed:", err)
+    })
+  }
+
+nftMint(
+  "ipfs://QmZpBPUrkp1a8bTqo22FzHNwAYYNMUnfWVskRSVGq62W2B"
+)
